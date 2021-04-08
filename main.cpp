@@ -2,34 +2,7 @@
 #include<algorithm>
 #define n 3
 
-void change(int M[][4], int r1, int r2){
-    for(int i = 0; i < 4; i++){
-        std::swap(M[r1][i],M[r2][i]);
-    }
-}
-
-void scale(int M[][4],int r1, int s){
-    for(int i = 0; i < 4; i++){
-        M[r1][i] = s * M[r1][i];
-    }
-}
-
-void addUp(int M[][4], int r1, int r2, int s){
-    for(int i = 0; i < 4; i++){
-        M[r1][i] = M[r1][i] + (s * M[r2][i]);
-    }
-}
-
-void print(int M[][n]){
-    for(int i = 0; i <n; i++){
-        for(int j = 0; j < n; j++){
-            std::cout<<M[i][j];
-        }
-        std::cout<<std::endl;
-    }
-}
-
-void printMore(int M[][n+1]){
+void printMore(float M[][n+1]){
     for(int i = 0; i <n; i++){
         for(int j = 0; j < n + 1; j++){
             std::cout<<M[i][j]<<" ";
@@ -38,8 +11,48 @@ void printMore(int M[][n+1]){
     }
 }
 
-int gje(int A[][n], int B[n]){
-    int X[n][n + 1];
+void change(float M[][4], int r1, int r2){
+    for(int i = 0; i < 4; i++){
+        std::swap(M[r1][i],M[r2][i]);
+    }
+    std::cout << "After changing rows " << r1 << " and " << r2 << ":" << std::endl;
+    printMore(M);
+}
+
+void scale(float M[][n + 1],int r1, float s){
+    float temp = s;
+    // if (s == 0){
+    //     temp == 1;
+    // }
+    // else {
+    //     temp == s;
+    // }
+    for(int i = 0; i < n + 1; i++){
+        M[r1][i] = temp * M[r1][i];
+    }
+    std::cout << "After scaling row " << r1 << " by " << temp << ":" << std::endl;
+    printMore(M);
+}
+
+void addUp(float M[][4], int r1, int r2, float s){
+    for(int i = 0; i < 4; i++){
+        M[r1][i] = M[r1][i] + (s * M[r2][i]);
+    }
+    std::cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  std::endl;
+    printMore(M);
+}
+
+void print(float M[][n]){
+    for(int i = 0; i <n; i++){
+        for(int j = 0; j < n; j++){
+            std::cout<<M[i][j]<<" ";
+        }
+        std::cout<<std::endl;
+    }
+}
+
+float gje(float A[][n], float B[n]){
+    float X[n][n + 1];
     for(int i = 0; i < n; i++){
         for(int j = 0; j < n + 1; j++){
             if(j == n){
@@ -47,24 +60,30 @@ int gje(int A[][n], int B[n]){
             }else{
                 X[i][j] = A[i][j];
             }
+            std::cout << X[i][j] << " ";
         }
+        std::cout << std::endl;
     }
 
-    for(int i = 0; i < n - 1; i++){
+    // Looping through X
+    for(int i = 0; i < n; i++){
+        // Get a non-zero pivot
         if(X[i][i] == 0){
-            for(int j = 0; j < n - 1; j ++){
+            for(int j = 0; j < n; j ++){
                 if(X[j][i] != 0){
                     change(X,i,j);
                 }
             }
         }
-    
+
+        // scale pivot to 1
         if(X[i][i] == 0){
             return -1;
         }else{
-            scale(X,i,1/X[i][i]);
+            scale(X, i, 1.0 / X[i][i]);
         }
 
+        // Turn other numbers in column to 0
         for(int j = 0; j < n; j++){
             if(X[j][i] != 0 && j != i){
                 addUp(X,j,i, -X[j][i]);
@@ -72,15 +91,15 @@ int gje(int A[][n], int B[n]){
         }
     }
 
-
+    std::cout << "Result:" << std::endl;
     printMore(X);
 
     return 0;
 }
 
 int main() {
-    int M[3][3] = {{0,1,-3}, {2,3,-1},{4,5-2}};
-    int B[3] = {-5,7,10};
+    float M[3][3] = {{0.0 ,1.0 ,-3.0}, {2.0, 3.0, -1.0}, {4.0, 5.0, -2.0}};
+    float B[3] = {-5.0, 7.0, 10.0};
     // std::cout<<"unswapped"<<std::endl; 
     // print(M);
     
@@ -90,7 +109,7 @@ int main() {
     // print(M);
     
     // std::cout<<"scale"<<std::endl; 
-    // scale(M,1,5);
+    // scale(M,2,4);
     // print(M);
 
     // std::cout<<"add"<<std::endl; 
