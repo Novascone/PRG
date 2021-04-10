@@ -4,6 +4,36 @@
 
 using namespace std;
 
+void print(vector< vector<float> > &M);
+void change(vector< vector<float> > &M, int r1, int r2);
+void scale(vector< vector<float> > &M, int r1, float s);
+void addUp(vector< vector<float> > &M, int r1, int r2, float s);
+float gje(vector< vector<float> > &M1, vector<float> &M2);
+
+int main() {
+    int A[3][3] = {{0.0 ,1.0 ,-3.0}, {2.0, 3.0, -1.0}, {4.0, 5.0, -2.0}};
+    int C[] = {-5.0, 7.0, 10.0};
+
+    vector< vector<float> > M(3);
+    vector<float> B;
+
+    for (int i = 0; i < 3; ++i) {
+        M[i] = vector<float>(3);
+        for (int j = 0; j < 3; ++j) {
+            M[i][j] = A[i][j];
+        }
+    }
+    
+    for (int i = 0; i < 3; ++i) {
+        B.push_back(C[i]);
+    }
+
+
+    gje(M, B);
+
+    return 0;
+}
+
 void print(vector< vector<float> > &M){
     for(int i = 0; i < M.size(); i++){
         for(int j = 0; j < M[i].size(); j++){
@@ -70,16 +100,6 @@ float gje(vector< vector<float> > &M1, vector<float> &M2){
 
     cout << "Result:" << endl;
     print(M1);
-
-    return 0;
-}
-
-int main() {
-
-    vector< vector<float> > M = {{0.0 ,1.0 ,-3.0}, {2.0, 3.0, -1.0}, {4.0, 5.0, -2.0}};
-    vector<float> B = {-5.0, 7.0, 10.0};
-
-    gje(M, B);
 
     return 0;
 }
