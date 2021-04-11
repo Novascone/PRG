@@ -13,34 +13,37 @@ void print(vector< vector<double> > &M);
 void change(vector< vector<double> > &M, int r1, int r2);
 void scale(vector< vector<double> > &M, int r1, double s);
 void addUp(vector< vector<double> > &M, int r1, int r2, double s);
-double gje(vector< vector<double> > &M1, vector<double> &M2);
+void creatMatrix();
+double gje(vector< vector<double> > &M1);
+
+// pivot is equal to int i
+// master process get matrix and does swaps
+// each worker gets copy of matrix and row/pivot to work on
+// get pivot to 1 and everything to 0
+// each worker returns a double to master
+// read in multiple matrices
+// keep track of time? Maybe
 
 int main(int argc,char *argv[]) {
-    int rank, size;
+    int mpiRank, size;
     int data;
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MCW, &rank); 
+    MPI_Comm_rank(MCW, &mpiRank); 
     MPI_Comm_size(MCW, &size); 
 
-    int A[3][3] = {{0.0 ,1.0 ,-3.0}, {2.0, 3.0, -1.0}, {4.0, 5.0, -2.0}};
-    int C[] = {-5.0, 7.0, 10.0};
+    int A[3][4] = {{0.0 ,1.0 ,-3.0, -5.0}, {2.0, 3.0, -1.0, 7.0}, {4.0, 5.0, -2.0, 10.0}};
 
     vector< vector<double> > M(3);
-    vector<double> B;
 
     for (int i = 0; i < 3; ++i) {
-        M[i] = vector<double>(3);
-        for (int j = 0; j < 3; ++j) {
+        M[i] = vector<double>(4);
+        for (int j = 0; j < 4; ++j) {
             M[i][j] = A[i][j];
         }
     }
-    
-    for (int i = 0; i < 3; ++i) {
-        B.push_back(C[i]);
-    }
 
 
-    gje(M, B);
+    gje(M);
 
     MPI_Finalize();
     return 0;
@@ -79,10 +82,7 @@ void addUp(vector< vector<double> > &M, int r1, int r2, double s){
     print(M);
 }
 
-double gje(vector< vector<double> > &M1, vector<double> &M2){
-    for(int i = 0; i < M1.size(); i++){
-        M1[i].push_back(M2[i]);
-    }
+double gje(vector< vector<double> > &M1){
 
     // Looping through X
     for(int i = 0; i < M1.size(); i++){
