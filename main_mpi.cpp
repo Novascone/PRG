@@ -1,24 +1,35 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <mpi.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+#define MCW MPI_COMM_WORLD
 
 using namespace std;
 
-void print(vector< vector<float> > &M);
-void change(vector< vector<float> > &M, int r1, int r2);
-void scale(vector< vector<float> > &M, int r1, float s);
-void addUp(vector< vector<float> > &M, int r1, int r2, float s);
-float gje(vector< vector<float> > &M1, vector<float> &M2);
+void print(vector< vector<double> > &M);
+void change(vector< vector<double> > &M, int r1, int r2);
+void scale(vector< vector<double> > &M, int r1, double s);
+void addUp(vector< vector<double> > &M, int r1, int r2, double s);
+double gje(vector< vector<double> > &M1, vector<double> &M2);
 
-int main() {
+int main(int argc,char *argv[]) {
+    int rank, size;
+    int data;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MCW, &rank); 
+    MPI_Comm_size(MCW, &size); 
+
     int A[3][3] = {{0.0 ,1.0 ,-3.0}, {2.0, 3.0, -1.0}, {4.0, 5.0, -2.0}};
     int C[] = {-5.0, 7.0, 10.0};
 
-    vector< vector<float> > M(3);
-    vector<float> B;
+    vector< vector<double> > M(3);
+    vector<double> B;
 
     for (int i = 0; i < 3; ++i) {
-        M[i] = vector<float>(3);
+        M[i] = vector<double>(3);
         for (int j = 0; j < 3; ++j) {
             M[i][j] = A[i][j];
         }
@@ -31,10 +42,11 @@ int main() {
 
     gje(M, B);
 
+    MPI_Finalize();
     return 0;
 }
 
-void print(vector< vector<float> > &M){
+void print(vector< vector<double> > &M){
     for(int i = 0; i < M.size(); i++){
         for(int j = 0; j < M[i].size(); j++){
             cout << M[i][j] << " ";
@@ -43,7 +55,7 @@ void print(vector< vector<float> > &M){
     }
 }
 
-void change(vector< vector<float> > &M, int r1, int r2){
+void change(vector< vector<double> > &M, int r1, int r2){
     for(int i = 0; i < M[r1].size(); i++){
         swap(M[r1][i],M[r2][i]);
     }
@@ -51,7 +63,7 @@ void change(vector< vector<float> > &M, int r1, int r2){
     print(M);
 }
 
-void scale(vector< vector<float> > &M, int r1, float s){
+void scale(vector< vector<double> > &M, int r1, double s){
     for(int i = 0; i < M[r1].size(); i++){
         M[r1][i] = s * M[r1][i];
     }
@@ -59,7 +71,7 @@ void scale(vector< vector<float> > &M, int r1, float s){
     print(M);
 }
 
-void addUp(vector< vector<float> > &M, int r1, int r2, float s){
+void addUp(vector< vector<double> > &M, int r1, int r2, double s){
     for(int i = 0; i < M[r1].size(); i++){
         M[r1][i] = M[r1][i] + (s * M[r2][i]);
     }
@@ -67,7 +79,7 @@ void addUp(vector< vector<float> > &M, int r1, int r2, float s){
     print(M);
 }
 
-float gje(vector< vector<float> > &M1, vector<float> &M2){
+double gje(vector< vector<double> > &M1, vector<double> &M2){
     for(int i = 0; i < M1.size(); i++){
         M1[i].push_back(M2[i]);
     }
