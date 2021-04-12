@@ -11,7 +11,8 @@ using namespace std;
 
 int mpiRank, size, data;
 
-void print(vector< vector<double> > &M);
+void print(vector<double> &B);
+void printMore(vector< vector<double> > &M);
 void change(vector< vector<double> > &M, int r1, int r2);
 void scale(vector< vector<double> > &M, int r1, double s);
 void addUp(vector< vector<double> > &M, int r1, int r2, double s);
@@ -47,8 +48,13 @@ int main(int argc,char *argv[]) {
     MPI_Finalize();
     return 0;
 }
+void print(vector<double> &B){
+    for(int i = 0; i < B.size(); i++){
+        cout << B[i] << " " << endl;
+    }
+}
 
-void print(vector< vector<double> > &M){
+void printMore(vector< vector<double> > &M){
     for(int i = 0; i < M.size(); i++){
         for(int j = 0; j < M[i].size(); j++){
             cout << M[i][j] << " ";
@@ -62,7 +68,7 @@ void change(vector< vector<double> > &M, int r1, int r2){
         swap(M[r1][i],M[r2][i]);
     }
     cout << "After changing rows " << r1 << " and " << r2 << ":" << endl;
-    print(M);
+    printMore(M);
 }
 
 void scale(vector< vector<double> > &M, int r1, double s){
@@ -70,7 +76,7 @@ void scale(vector< vector<double> > &M, int r1, double s){
         M[r1][i] = s * M[r1][i];
     }
     cout << "After scaling row " << r1 << " by " << s << ":" << endl;
-    print(M);
+    printMore(M);
 }
 
 void addUp(vector< vector<double> > &M, int r1, int r2, double s){
@@ -78,15 +84,16 @@ void addUp(vector< vector<double> > &M, int r1, int r2, double s){
         M[r1][i] = M[r1][i] + (s * M[r2][i]);
     }
     cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  endl;
-    print(M);
+    printMore(M);
 }
 
-void gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
-    vector< vector<double> > temp(M.size())
+double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
+    MPI_Comm_rank(MCW, &mpiRank); 
+    MPI_Comm_size(MCW, &size); 
+    MPI_Status myStatus;
+    vector< vector<double> > temp(1);
 
-    for (int i = 0; i <  temp.size(); ++i) {
-        temp[i] = vector<double>(M[0].size());
-    }
+    temp[0] = vector<double>(M[0].size());
 
     bool done = false;
     int rowCount = 0;
@@ -103,61 +110,59 @@ void gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
 
         // sending row to each process
         for (int i = rowCount; i < numberOfProcs - 1 && i < M.size(); ++i, ++rowCount) {
-            MPI_Send(&M[0][0], (M[i].size() * M.size()), MPI_DOUBLE, (i + 1), rowCount, MCW);
+            MPI_Send(&M[i], M[0].size(), MPI_DOUBLE, (i + 1), rowCount, MCW);
             cout << "Master sending row " << i << " to processor " << (i + 1) << endl;
         }
 
         while(rowCount < M.size()) {
-            int myFlag, myStatus, received;
+            int myFlag, received;
             int epithet = -1;
             MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myFlag, &myStatus);
             if (myFlag) {
-                MPI_RECV(&received, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myStatus);
+                MPI_Recv(&received, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myStatus);
                 B[myStatus.MPI_TAG] = received;
                 rowCount++;
 
                 if(rowCount == M.size()) {
-                    MPI_SEND(&epithet, 1, MPI_INT, myStatus.MPI_SOURCE, -1, MCW);
+                    MPI_Send(&epithet, 1, MPI_INT, myStatus.MPI_SOURCE, -1, MCW);
                 } else {
-                    MPI_SEND(&M[0][0], (M[i].size() * M.size()), MPI_DOUBLE, myStatus.MPI_SOURCE, rowCount, MCW);
+                    MPI_Send(&M[rowCount], M[0].size(), MPI_DOUBLE, myStatus.MPI_SOURCE, rowCount, MCW);
                 }
             }
 
         }
     } else {
         while(!done) {
-            int myFlag, myStatus;
+            int myFlag;
             MPI_Iprobe(0, MPI_ANY_TAG, MCW, &myFlag, &myStatus);
             if (myFlag) {
                 if (myStatus.MPI_TAG == -1) {
                     done = true;
                 } else {
-                    MPI_RECV(&temp, (M[0].size() * M.size()), MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
-                    // Looping through X
+                    MPI_Recv(&temp, (M[0].size() * M.size()), MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
                     int pivot = myStatus.MPI_TAG;
-                    for(int i = 0; i < temp.size(); i++){
 
-                        // scale pivot to 1
-                        if(temp[pivot][pivot] == 0){
-                            return -1;
-                        }else{
-                            scale(temp, pivot, 1.0 / temp[pivot][pivot]);
-                        }
+                    // scale pivot to 1
+                    if(temp[0][pivot] == 0){
+                        return -1;
+                    }else{
+                        scale(temp, 0, 1.0 / temp[0][pivot]);
+                    }
 
+                    for(int i = 0; i < temp[0].size(); i++){
                         // Turn other numbers in column to 0
-                        for(int j = 0; j < temp.size(); j++){
-                            if(temp[j][i] != 0 && j != i){
-                                addUp(temp, j, i, -temp[j][i]);
-                            }
+                        if(temp[0][i] != 0 && i != pivot){
+                            addUp(temp, 0, i, -temp[0][i]);
                         }
                     }
+                    MPI_Send(&temp[pivot][temp[0].size() - 1], 1, MPI_DOUBLE, 0, pivot, MCW);
                 }
             }
         }
     }
 
     cout << "Result:" << endl;
-    print(M);
+    print(B);
 
     return 0;
 }
