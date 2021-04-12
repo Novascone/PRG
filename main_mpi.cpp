@@ -24,16 +24,16 @@ int main(int argc,char *argv[]) {
     MPI_Comm_size(MCW, &mpiSize); 
 
     // Creating an array matrix to pass into a 2d vector
-    int A[3][4] = {{0.0 ,1.0 ,-3.0, -5.0}, {2.0, 3.0, -1.0, 7.0}, {4.0, 5.0, -2.0, 10.0}};
+    double A[3][4] = {{0.0 ,1.0 ,-3.0, -5.0}, {2.0, 3.0, -1.0, 7.0}, {4.0, 5.0, -2.0, 10.0}};
 
     vector< vector<double> > M(3);
     vector<double> B(3);
 
     // creating the 2d part of the vector and saving the values of A
     for (int i = 0; i < 3; ++i) {
-        M[i] = vector<double>(4);
+        M.at(i) = vector<double>(4);
         for (int j = 0; j < 4; ++j) {
-            M[i][j] = A[i][j];
+            M.at(i).at(j) = A[i][j];
         }
     }
 
@@ -47,15 +47,15 @@ int main(int argc,char *argv[]) {
 // Used to print the final result of the elimination
 void print(vector<double> &B){
     for(int i = 0; i < B.size(); i++){
-        cout << B[i] << " " << endl;
+        cout << B.at(i) << " " << endl;
     }
 }
 
 // used to print a 2d vector
 void printMore(vector< vector<double> > &M){
     for(int i = 0; i < M.size(); i++){
-        for(int j = 0; j < M[i].size(); j++){
-            cout << M[i][j] << " ";
+        for(int j = 0; j < M.at(0).size(); j++){
+            cout << M.at(i).at(j) << " ";
         }
         cout << endl;
     }
@@ -64,7 +64,7 @@ void printMore(vector< vector<double> > &M){
 // helper function that swaps rows of matrix
 void change(vector< vector<double> > &M, int r1, int r2){
     for(int i = 0; i < M[r1].size(); i++){
-        swap(M[r1][i],M[r2][i]);
+        swap(M.at(r1).at(i),M.at(r2).at(i));
     }
     cout << "After changing rows " << r1 << " and " << r2 << ":" << endl;
     printMore(M);
@@ -72,8 +72,8 @@ void change(vector< vector<double> > &M, int r1, int r2){
 
 // helper function that scales rows to make the pivot 1
 void scale(vector< vector<double> > &M, int r1, double s){
-    for(int i = 0; i < M[r1].size(); i++){
-        M[r1][i] = s * M[r1][i];
+    for(int i = 0; i < M.at(r1).size(); i++){
+        M.at(r1).at(i) = s * M.at(r1).at(i);
     }
     cout << "After scaling row " << r1 << " by " << s << ":" << endl;
     printMore(M);
@@ -82,7 +82,7 @@ void scale(vector< vector<double> > &M, int r1, double s){
 // helper function to make other rows in pivot column 0
 void addUp(vector< vector<double> > &M, int r1, int r2, double s){
     for(int i = 0; i < M[r1].size(); i++){
-        M[r1][i] = M[r1][i] + (s * M[r2][i]);
+        M.at(r1).at(i) = M.at(r1).at(i) + (s * M.at(r2).at(i));
     }
     cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  endl;
     printMore(M);
@@ -96,16 +96,16 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
 
     // temp used for storing the passed vectors when using MPI_Recv
     vector< vector<double> > temp(1);
-    temp[0] = vector<double>(M[0].size());
+    temp[0] = vector<double>(M.at(0).size());
     bool done = false; // used to tell worker threads to stop
     int rowCount = 0; // used to know how many rows have been used and when we run out
     
     if (mpiRank == 0) {
         // if rank == 0, perform swaps before sending rows to other processes
         for (int i = 0; i < M.size(); ++i) {
-            if(M[i][i] == 0){
+            if(M.at(i).at(i) == 0){
                 for(int j = 0; j < M.size(); j++){
-                    if(M[j][i] != 0){
+                    if(M.at(j).at(i) != 0){
                         change(M, i, j);
                     }
                 }
@@ -114,7 +114,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
 
         // sending a row to each process
         for (int i = rowCount; i < numberOfProcs - 1 && i < M.size(); ++i, ++rowCount) {
-            MPI_Send(&M[i], M[i].size(), MPI_DOUBLE, (i + 1), rowCount, MCW);
+            MPI_Send(&M.at(i), M.at(i).size(), MPI_DOUBLE, (i + 1), rowCount, MCW);
             cout << "Master sending row " << i << " to processor " << (i + 1) << endl;
         }
 
@@ -137,7 +137,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                 if(rowCount == M.size()) {
                     MPI_Send(&epithet, 1, MPI_INT, myStatus.MPI_SOURCE, -1, MCW);
                 } else {
-                    MPI_Send(&M[rowCount], M[0].size(), MPI_DOUBLE, myStatus.MPI_SOURCE, rowCount, MCW);
+                    MPI_Send(&M.at(rowCount), M.at(0).size(), MPI_DOUBLE, myStatus.MPI_SOURCE, rowCount, MCW);
                 }
             }
         }
@@ -153,23 +153,23 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                 if (myStatus.MPI_TAG == -1) {
                     done = true;
                 } else {
-                    MPI_Recv(&temp, (M[0].size() * M.size()), MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
+                    MPI_Recv(&temp, (M.at(0).size() * M.size()), MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
                     int pivot = myStatus.MPI_TAG;
 
                     // scale pivot to 1
-                    if(temp[0][pivot] == 0){
+                    if(temp.at(0).at(pivot) == 0){
                         return -1;
                     }else{
-                        scale(temp, 0, 1.0 / temp[0][pivot]);
+                        scale(temp, 0, 1.0 / temp.at(0).at(pivot));
                     }
 
                     for(int i = 0; i < temp[0].size(); i++){
                         // Turn other numbers in column to 0
-                        if(temp[0][i] != 0 && i != pivot){
-                            addUp(temp, 0, i, -temp[0][i]);
+                        if(temp.at(0).at(i) != 0 && i != pivot){
+                            addUp(temp, 0, i, -temp.at(0).at(i));
                         }
                     }
-                    MPI_Send(&temp[pivot][temp[0].size() - 1], 1, MPI_DOUBLE, 0, pivot, MCW);
+                    MPI_Send(&temp.at(pivot).at(temp.at(0).size() - 1), 1, MPI_DOUBLE, 0, pivot, MCW);
                 }
             }
         }
