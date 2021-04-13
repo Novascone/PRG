@@ -85,9 +85,8 @@ void scale(vector<double> &M, int r1, double s, int col){
 
 // helper function to make other rows in pivot column 0
 void addUp(vector<double> &M, int r1, int r2, double s, int col){
-    int inc = 0;
-    for(int i = r1 * col; i < r1 * col + col + 1; i++, inc++){
-        M[i] = M[i] + (s * M[r2 * col]);
+    for(int i = r1; i < r1 * col + col + 1; i += col + 1){
+        M[i] = M[i] + (s * M[r2]);
     }
     cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  endl;
     print(M, col + 1);
@@ -107,6 +106,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
     int rowLength = M.at(0).size();
     int colLength = M.size();
     int numberOfElements = rowLength * colLength;
+    int returnCounter = 0;
 
     if (mpiRank == 0) {
         // if rank == 0, perform swaps before sending rows to other processes
@@ -134,7 +134,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
         }
 
         // while loop runs until there are no more rows to send out
-        while(rowCount < M.size()) {
+        while(returnCounter < colLength) {
             int myFlag;
             double received;
             int epithet = -1;
@@ -147,6 +147,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                 MPI_Recv(&received, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myStatus);
                 B[myStatus.MPI_TAG] = received;
                 rowCount++;
+                returnCounter++;
 
                 // checking to see if there are more rows to send
                 // if there aren't, we send a kill tag to other processors
@@ -185,7 +186,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                         cout << "gje test: " << loopCount << endl;
                         // Turn other numbers in column to 0
                         if(temp.at(i) != 0 && i != (pivot * colLength)) {
-                            addUp(temp, i, pivot, -temp.at(i), colLength);
+                            addUp(temp, i % rowLength, pivot * colLength, -temp.at(i), colLength);
                         }
                     }
                     MPI_Send(&temp[pivot * colLength + colLength], 1, MPI_DOUBLE, 0, pivot, MCW);
@@ -195,8 +196,10 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
     }
 
     // print the results of the function
-    cout << "Result:" << endl;
-    print(B, rowLength);
+    if (returnCounter == colLength) {
+        cout << "Result:" << endl;
+        print(B, rowLength);
+    }
 
     return 0;
 }
