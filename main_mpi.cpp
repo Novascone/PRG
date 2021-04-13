@@ -152,20 +152,31 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
             if (myFlag) {
                 // once received, we save the received double to B which houses the results
                 // using MPI_TAG to know pivot/row of result
-                MPI_Recv(&received, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myStatus);
-                B[myStatus.MPI_TAG] = received;
+                MPI_Recv(&temp[0], numberOfElements, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myStatus);
+                // MPI_Recv(&received, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myStatus);
+                // B[myStatus.MPI_TAG] = received;
                 rowCount++;
                 returnCounter++;
 
                 // checking to see if there are more rows to send
                 // if there aren't, we send a kill tag to other processors
-                if(rowCount == M.size()) {
+                if(rowCount > M.size()) {
                     MPI_Send(&epithet, 1, MPI_INT, myStatus.MPI_SOURCE, 101, MCW);
                 } else {
                     MPI_Send(&temp[0], numberOfElements, MPI_DOUBLE, myStatus.MPI_SOURCE, (rowCount - 1), MCW);
                     cout << "Master sending row " << (rowCount - 1) << " to processor " << myStatus.MPI_SOURCE << endl;
                 }
             }
+        }
+        int tempCounter = 0;
+        for (int i = 0; i < colLength; ++i) {
+                for (int j = 0; j < rowLength; ++j, tempCounter++) {
+                    M.at(i).at(j) = temp.at(tempCounter);
+                }
+            }
+
+        for (int i = 0; i < colLength; ++i) {
+            B.at(i) = M.at(i).at(rowLength - 1);
         }
     } 
     // worker threads below
@@ -185,7 +196,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                     int tempCounter = 0;
                     for (int i = 0; i < colLength; ++i) {
                         for (int j = 0; j < rowLength; ++j, tempCounter++) {
-                            recTemp.at(i).at(j) = temp[tempCounter];
+                            recTemp.at(i).at(j) = temp.at(tempCounter);
                         }
                     }
 
@@ -203,8 +214,18 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                             addUp(recTemp, i, pivot, -recTemp.at(i).at(pivot));
                         }
                     }
-                    double result = recTemp.at(pivot).at(rowLength - 1);
-                    MPI_Send(&result, 1, MPI_DOUBLE, 0, pivot, MCW);
+
+                    tempCounter = 0;
+                    for (int i = 0; i < colLength; ++i) {
+                        for (int j = 0; j < rowLength; ++j, tempCounter++) {
+                            temp[tempCounter] = recTemp.at(i).at(j);
+                        }
+                    }
+
+                    MPI_Send(&temp[0], numberOfElements, MPI_DOUBLE, 0, pivot, MCW);
+                    cout << "Send info back to master" << endl;
+                    // double result = recTemp.at(pivot).at(rowLength - 1);
+                    // MPI_Send(&result, 1, MPI_DOUBLE, 0, pivot, MCW);
                 }
             }
         }
