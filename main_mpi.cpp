@@ -9,7 +9,7 @@
 
 using namespace std;
 
-int mpiRank, mpiSize, data;
+int mpiRank, mpiSize, data, N;
 
 void print(vector<double> &B);
 void printMore(vector< vector<double> > &M);
@@ -38,7 +38,6 @@ int main(int argc,char *argv[]) {
         }
     }
 
-    cout << mpiSize << endl;
     // performs gaussian-jordan elimination
     gje(M, B, mpiSize);
 
@@ -63,6 +62,12 @@ void printMore(vector< vector<double> > &M){
     }
 }
 
+void printArray(double B[]){
+    for(int i = 0; i < sizeof(B) / sizeof(B[0]); i++){
+        cout << B[i] << " " << endl;
+    }
+}
+
 // helper function that swaps rows of matrix
 void change(vector< vector<double> > &M, int r1, int r2){
     for(int i = 0; i < M[r1].size(); i++){
@@ -73,12 +78,12 @@ void change(vector< vector<double> > &M, int r1, int r2){
 }
 
 // helper function that scales rows to make the pivot 1
-void scale(vector<double> &M, int r1, double s){
-    for(int i = 0; i < M.size(); i++){
-        M.at(i) = s * M.at(i);
+void scale(double M[], int r1, double s, int col){
+    for(int i = r1 * col; i < i + col; i++){
+        M[i] = s * M[i];
     }
     cout << "After scaling row " << r1 << " by " << s << ":" << endl;
-    print(M);
+    printArray(M);
 }
 void scale(vector< vector<double> > &M, int r1, double s){
     for(int i = 0; i < M.at(r1).size(); i++){
@@ -89,12 +94,13 @@ void scale(vector< vector<double> > &M, int r1, double s){
 }
 
 // helper function to make other rows in pivot column 0
-void addUp(vector<double> &M, int r1, int r2, double s){
-    for(int i = 0; i < M.size(); i++){
-        M.at(i) = M.at(i) + (s * M.at(i));
+void addUp(double M[], int r1, int r2, double s, int col){
+    int inc = 0;
+    for(int i = r1 * col; i < i + col; i++, inc++){
+        M[i] = M[i] + (s * M[r2 * col]);
     }
     cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  endl;
-    print(M);
+    printArray(M);
 }
 void addUp(vector< vector<double> > &M, int r1, int r2, double s){
     for(int i = 0; i < M.at(r1).size(); i++){
@@ -103,7 +109,6 @@ void addUp(vector< vector<double> > &M, int r1, int r2, double s){
     cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  endl;
     printMore(M);
 }
-
 
 // The gaussian-jordan elimination function that utilizes helper functions to get results
 double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
@@ -117,7 +122,20 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
     bool done = false; // used to tell worker threads to stop
     int rowCount = 0; // used to know how many rows have been used and when we run out
     int rowLength = M.at(0).size();
-    
+    int colLength = M.size();
+    int numberOfElements = rowLength * colLength;
+    cout << "Number of elements: " << numberOfElements << endl;
+    double data[numberOfElements];
+
+    for (int i = 0; i < numberOfElements; i++) {
+        data[i] = 0.0;
+    }
+
+    cout << "Print out data array with this number of elements: " << (sizeof(data) / sizeof(data[0])) << endl;
+    for(int i = 0; i < sizeof(data) / sizeof(data[0]); i++){
+        cout << B[i] << " " << endl;
+    }
+
     if (mpiRank == 0) {
         // if rank == 0, perform swaps before sending rows to other processes
         for (int i = 0; i < M.size(); ++i) {
@@ -130,12 +148,17 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
             }
         }
 
+        int count = 0;
+        for (int i = 0; i < colLength; ++i) {
+            for (int j = 0; j < rowLength; ++j, count++) {
+                data[count] = M.at(i).at(j); 
+            }
+        }
+
         // sending a row to each process
         for (int i = 0; i < (numberOfProcs - 1) && i < M.size(); i++, rowCount++) {
-            MPI_Send(&M.at(i), rowLength, MPI_DOUBLE, (i + 1), rowCount, MCW);
+            MPI_Send(data, (rowLength * colLength), MPI_DOUBLE, (i + 1), rowCount, MCW);
             cout << "Master sending row " << i << " to processor " << (i + 1) << endl;
-            cout << "values sent:" << endl;
-            print(M.at(i));
         }
 
         // while loop runs until there are no more rows to send out
@@ -156,9 +179,9 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                 // checking to see if there are more rows to send
                 // if there aren't, we send a kill tag to other processors
                 if(rowCount == M.size()) {
-                    MPI_Send(&epithet, 1, MPI_INT, myStatus.MPI_SOURCE, -1, MCW);
+                    MPI_Send(&epithet, 1, MPI_INT, myStatus.MPI_SOURCE, 101, MCW);
                 } else {
-                    MPI_Send(&M.at(rowCount), M.at(0).size(), MPI_DOUBLE, myStatus.MPI_SOURCE, rowCount, MCW);
+                    MPI_Send(data, (rowLength * colLength), MPI_DOUBLE, myStatus.MPI_SOURCE, rowCount, MCW);
                 }
             }
         }
@@ -171,30 +194,28 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
             MPI_Iprobe(0, MPI_ANY_TAG, MCW, &myFlag, &myStatus);
             if (myFlag) {
                 // if kill message is received, we get out of the loop
-                if (myStatus.MPI_TAG == -1) {
+                if (myStatus.MPI_TAG == 101) {
                     done = true;
                 } else {
-                    cout << "temp before receive:" << endl;
-                    print(temp);
-                    MPI_Recv(&temp.at(0), rowLength, MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
-                    cout << "temp after received:" << endl;
-                    print(temp);
+                    MPI_Recv(data, (rowLength * colLength), MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
                     int pivot = myStatus.MPI_TAG;
 
                     // scale pivot to 1
-                    if(temp.at(pivot) == 0){
+                    if(data[rowLength * pivot] == 0){
+                        cout << "There is no solution" << endl;
                         return -1;
                     }else{
-                        scale(temp, 0, 1.0 / temp.at(pivot));
+                        scale(data, pivot, 1.0 / data[rowLength * pivot], colLength);
                     }
 
-                    for(int i = 0; i < temp.size(); i++){
+                    int loopCount = 0;
+                    for(int i = pivot; loopCount < colLength; i += rowLength){
                         // Turn other numbers in column to 0
-                        if(temp.at(i) != 0 && i != pivot){
-                            addUp(temp, 0, i, -temp.at(i));
+                        if(data[i] != 0 && i != (pivot * colLength)) {
+                            addUp(data, i, pivot, -data[i], colLength);
                         }
                     }
-                    MPI_Send(&temp.at(temp.size() - 1), 1, MPI_DOUBLE, 0, pivot, MCW);
+                    MPI_Send(&data[pivot * colLength + colLength], 1, MPI_DOUBLE, 0, pivot, MCW);
                 }
             }
         }
