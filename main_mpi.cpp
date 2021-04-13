@@ -11,13 +11,11 @@ using namespace std;
 
 int mpiRank, mpiSize, data, N;
 
-void print(vector<double> &B, int col);
+void print(vector<double> &B, int row);
 void printMore(vector< vector<double> > &M);
 void change(vector< vector<double> > &M, int r1, int r2);
-void scale(vector<double> &M, int r1, double s, int row);
-void scale(vector< vector<double> > &M, int r1, double s);
+void scale(vector<double> &M, int r1, double s, int col);
 void addUp(vector<double> &M, int r1, int r2, double s, int col);
-void addUp(vector< vector<double> > &M, int r1, int r2, double s);
 double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs);
 
 int main(int argc,char *argv[]) {
@@ -54,7 +52,7 @@ void print(vector<double> &B, int row){
             cout << endl;
         }
     }
-    cout << "testing print to end" << endl;
+    cout<< endl;
 }
 
 // used to print a 2d vector
@@ -64,12 +62,6 @@ void printMore(vector< vector<double> > &M){
             cout << M.at(i).at(j) << " ";
         }
         cout << endl;
-    }
-}
-
-void printArray(double B[]){
-    for(int i = 0; i < sizeof(B) / sizeof(B[0]); i++){
-        cout << B[i] << endl;
     }
 }
 
@@ -84,36 +76,21 @@ void change(vector< vector<double> > &M, int r1, int r2){
 
 // helper function that scales rows to make the pivot 1
 void scale(vector<double> &M, int r1, double s, int col){
-    for(int i = r1 * col; i < r1 * col + col; i++){
+    for(int i = r1 * col; i < r1 * col + col + 1; i++){
         M.at(i) = s * M.at(i);
     }
     cout << "After scaling row " << r1 << " by " << s << ":" << endl;
     print(M, col + 1);
 }
-void scale(vector< vector<double> > &M, int r1, double s){
-    for(int i = 0; i < M.at(r1).size(); i++){
-        M.at(r1).at(i) = s * M.at(r1).at(i);
-    }
-    cout << "After scaling row " << r1 << " by " << s << ":" << endl;
-    printMore(M);
-}
 
 // helper function to make other rows in pivot column 0
 void addUp(vector<double> &M, int r1, int r2, double s, int col){
     int inc = 0;
-    for(int i = r1 * col; i < r1 * col + col; i++, inc++){
-        cout << "test: " << i << endl;
+    for(int i = r1 * col; i < r1 * col + col + 1; i++, inc++){
         M[i] = M[i] + (s * M[r2 * col]);
     }
     cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  endl;
     print(M, col + 1);
-}
-void addUp(vector< vector<double> > &M, int r1, int r2, double s){
-    for(int i = 0; i < M.at(r1).size(); i++){
-        M.at(r1).at(i) = M.at(r1).at(i) + (s * M.at(r2).at(i));
-    }
-    cout << "After addUp of row " << r1 << " with row " << r2 << " and " << s << ":" <<  endl;
-    printMore(M);
 }
 
 // The gaussian-jordan elimination function that utilizes helper functions to get results
@@ -130,7 +107,6 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
     int rowLength = M.at(0).size();
     int colLength = M.size();
     int numberOfElements = rowLength * colLength;
-    cout << "Number of elements: " << numberOfElements << endl;
 
     if (mpiRank == 0) {
         // if rank == 0, perform swaps before sending rows to other processes
@@ -193,11 +169,7 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
                 if (myStatus.MPI_TAG == 101) {
                     done = true;
                 } else {
-                    cout << "Before receive:" << endl;
-                    print(temp, rowLength);
                     MPI_Recv(&temp[0], numberOfElements, MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
-                    cout << "After receive:" << endl;
-                    print(temp, rowLength);
                     int pivot = myStatus.MPI_TAG;
 
                     // scale pivot to 1
