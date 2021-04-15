@@ -1,4 +1,4 @@
-f = open("mat10.txt", "r")
+f = open("mat10(1).txt", "r")
 f2 = f.read()
 f3 = f2.replace("[", '{')
 f4 = f3.replace("]", '}')
