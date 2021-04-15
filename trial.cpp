@@ -10,7 +10,7 @@
 
 using namespace std;
 
-int mpiRank, mpiSize, data, N;
+int mpiRank, mpiSize;
 
 void print(vector<double> &B, int row);
 void printMore(vector< vector<double> > &M);
@@ -32,6 +32,7 @@ int main(int argc,char *argv[]) {
     int colLength;
     int numberOfElements;
     int matrixCount = 0;
+    int retCount = 0;
     
     if (mpiRank == 0) {
         vector< vector<double> > M1(3);
@@ -96,11 +97,15 @@ int main(int argc,char *argv[]) {
                 // once received, we save the received double to B which houses the results
                 // using MPI_TAG to know pivot/row of result
                 MPI_Recv(&data, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MCW, &myStatus);
+                retCount++;
+                cout << "Return count: " << retCount << endl;
 
                 // checking to see if there are more rows to send
                 // if there aren't, we send a kill tag to other processors
-                if(myStatus.MPI_TAG == (M1.size() - 1)) {
-                    MPI_Send(&epithet, 1, MPI_INT, myStatus.MPI_SOURCE, 101, MCW);
+                if(retCount == (M1.size() - 1)) {
+                    for (int i = 1; i < mpiSize; ++i) {
+                        MPI_Send(&epithet, 1, MPI_INT, i, 101, MCW);
+                    }
                     done = true;
                 } else {
                     sendTemp.clear();
@@ -122,6 +127,7 @@ int main(int argc,char *argv[]) {
         // probing to ensure the is a message to receive
         MPI_Iprobe(0, MPI_ANY_TAG, MCW, &myFlag, &myStatus);
         if (myFlag) {
+            cout << "My flag flag: " << myFlag << endl;
             // if kill message is received, we get out of the loop
             if (myStatus.MPI_TAG == 101) {
                 cout << "No more matrices for processor " << mpiRank << endl;
@@ -132,17 +138,14 @@ int main(int argc,char *argv[]) {
                 colLength = matrixAttributes[myStatus.MPI_TAG][0];
 
                 // temp used for storing the passed vectors when using MPI_Recv
-                temp.clear();
-                recTemp.clear();
                 for (int i = 0; i < numberOfElements; ++i) {
                     temp.push_back(0.0);
                 }
                 for (int i = 0; i < colLength; ++i) {
                     recTemp.push_back(vector<double>(rowLength));
                 }
-                cout << "before" << endl;
+
                 MPI_Recv(&temp[0], numberOfElements, MPI_DOUBLE, 0, MPI_ANY_TAG, MCW, &myStatus);
-                cout << "after" << endl;
 
                 int tempCounter = 0;
                 for (int i = 0; i < colLength; ++i) {
@@ -154,24 +157,21 @@ int main(int argc,char *argv[]) {
                 gje(recTemp, B, mpiSize);
 
                 MPI_Send(&numberOfElements, 1, MPI_INT, 0, myStatus.MPI_TAG, MCW);
-                cout << "Send info back to master" << endl;
+                cout << "Processor " << mpiRank << " is checking with Rank 0 for another matrix to solve..." << endl;
                 }
             }
         }
+        cout << mpiRank << " is dead" << endl;
     }
 
     MPI_Finalize();
 }
 
 // Used to print the final result of the elimination
-void print(vector<double> &B, int row){
+void print(vector<double> &B){
     for(int i = 0; i < B.size(); i++){
-        cout << B.at(i) << " ";
-        if ((i + 1) % row == 0) {
-            cout << endl;
-        }
+        cout << B.at(i) << endl;
     }
-    cout<< endl;
 }
 
 // used to print a 2d vector
@@ -240,8 +240,13 @@ double gje(vector< vector<double> > &M, vector<double> &B, int numberOfProcs){
         }
     }
 
+    B.clear();
+
+    for (int i = 0; i < M.size(); ++i) {
+        B.push_back(M.at(i).at(M.at(0).size() - 1));
+    }
     cout << "Result:" << endl;
-    printMore(M);
+    print(B);
 
     return 0;
 }
